@@ -98,7 +98,7 @@ export default function PhotosPage() {
 
   // Get unique events/trips from photos
   const uniqueEvents = useMemo(() => {
-    const events = [...new Set(photos.map(p => p.event))];
+    const events = Array.from(new Set(photos.map(p => p.event)));
     return events.sort();
   }, [photos]);
 
@@ -109,12 +109,12 @@ export default function PhotosPage() {
       p.aiTags.forEach(t => tags.add(t));
       p.verifiedTags.forEach(t => tags.add(t));
     });
-    return [...tags].sort();
+    return Array.from(tags).sort();
   }, [photos]);
 
   // Get unique years
   const uniqueYears = useMemo(() => {
-    const years = [...new Set(photos.map(p => p.date.split('-')[0]))];
+    const years = Array.from(new Set(photos.map(p => p.date.split('-')[0])));
     return years.sort((a, b) => Number(b) - Number(a));
   }, [photos]);
 
