@@ -2,189 +2,170 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { mockUsers } from '@/data/mock-db';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { RoleSwitcher } from '@/components/role-switcher';
 import { Button } from '@/components/ui/button';
 import {
   Search,
   Shield,
-  Users,
   Camera,
   Map,
   FileText,
   Radio,
-  User,
-  ChevronDown,
-  Terminal
+  Users,
+  Newspaper,
+  Menu,
+  X,
+  Command
 } from 'lucide-react';
 
 export function Navigation() {
-  const {
-    currentUser,
-    currentRole,
-    switchRole,
-    setSearchOpen,
-    setTerminalOpen
-  } = useAppStore();
-
+  const { currentRole, setSearchOpen, setTerminalOpen } = useAppStore();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleKeyPress = (e: KeyboardEvent) => {
-    if (e.metaKey && e.key === 'k') {
-      e.preventDefault();
-      setSearchOpen(true);
-    }
-  };
-
   useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [setSearchOpen]);
 
   if (!mounted) return null;
 
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'scoutmaster': return 'Scoutmaster';
-      case 'spl': return 'Senior Patrol Leader';
-      case 'patrol_leader': return 'Patrol Leader';
-      case 'parent': return 'Parent';
-      case 'scout': return 'Scout';
-      default: return role;
-    }
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'scoutmaster': return 'bg-troop-maroon text-white';
-      case 'spl': return 'bg-troop-gold text-black';
-      case 'patrol_leader': return 'bg-blue-600 text-white';
-      case 'parent': return 'bg-green-600 text-white';
-      case 'scout': return 'bg-gray-600 text-white';
-      default: return 'bg-gray-500 text-white';
-    }
-  };
-
+  // Navigation items based on role
   const getNavigationItems = () => {
     const baseItems = [
       { href: '/', label: 'Home', icon: Shield },
-      { href: '/archive', label: 'Photo Archive', icon: Camera },
+      { href: '/photos', label: 'Photos', icon: Camera },
       { href: '/trips', label: 'Trips', icon: Map },
-      { href: '/newsletters', label: 'Newsletters', icon: FileText },
+      { href: '/newsletters', label: 'Newsletters', icon: Newspaper },
     ];
 
-    if (currentRole === 'scoutmaster') {
-      baseItems.splice(2, 0, { href: '/roster', label: 'Scout Roster', icon: Users });
+    // Add Documents for all roles
+    baseItems.push({ href: '/documents', label: 'Documents', icon: FileText });
+
+    // Add Roster for scoutmaster, spl, patrol_leader
+    if (['scoutmaster', 'admin', 'spl', 'aspl', 'patrol_leader'].includes(currentRole)) {
+      baseItems.splice(3, 0, { href: '/roster', label: 'Roster', icon: Users });
     }
 
-    if (currentRole === 'spl' || currentRole === 'scoutmaster') {
-      baseItems.push({ href: '/blast', label: 'Communication', icon: Radio });
+    // Add Communication for scoutmaster and spl
+    if (['scoutmaster', 'admin', 'spl'].includes(currentRole)) {
+      baseItems.push({ href: '/communication', label: 'Blast', icon: Radio });
     }
 
     return baseItems;
   };
 
-  return (
-    <>
-      <nav className="sticky top-0 z-50 border-b border-white/10 bg-black/50 backdrop-blur-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="flex items-center space-x-2">
-                <Shield className="h-8 w-8 text-troop-maroon" />
-                <div className="flex flex-col">
-                  <span className="text-xl font-bold text-white">Troop 78</span>
-                  <span className="text-xs text-gray-400">Est. 1978</span>
-                </div>
-              </Link>
+  const navItems = getNavigationItems();
 
-              <div className="hidden md:flex items-center space-x-6">
-                {getNavigationItems().map(({ href, label, icon: Icon }) => (
+  return (
+    <nav className="sticky top-0 z-50 nav-dark">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-900 flex items-center justify-center">
+              <Shield className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg font-bold text-white">Troop 78</span>
+              <span className="text-xs text-slate-400">Est. 1978</span>
+            </div>
+          </Link>
+
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center gap-1">
+            {navItems.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Right Side Actions */}
+          <div className="flex items-center gap-3">
+            {/* Search Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchOpen(true)}
+              className="hidden sm:flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-800"
+            >
+              <Search className="h-4 w-4" />
+              <span className="text-sm">Search</span>
+              <kbd className="hidden md:inline-flex h-5 items-center gap-1 rounded border border-slate-600 bg-slate-800 px-1.5 text-xs text-slate-400">
+                <Command className="h-3 w-3" />K
+              </kbd>
+            </Button>
+
+            {/* Role Switcher */}
+            <div className="hidden md:block">
+              <RoleSwitcher />
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 text-slate-300 hover:text-white"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden py-4 border-t border-slate-800">
+            <div className="flex flex-col gap-1">
+              {navItems.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname === href;
+                return (
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center space-x-1 text-gray-300 hover:text-white transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-slate-800 text-white'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-5 w-5" />
                     <span>{label}</span>
                   </Link>
-                ))}
-              </div>
+                );
+              })}
             </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchOpen(true)}
-                className="text-gray-300 hover:text-white"
-              >
-                <Search className="h-4 w-4 mr-2" />
-                <span className="hidden md:inline">Search</span>
-                <span className="ml-2 text-xs text-gray-500">⌘K</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTerminalOpen(true)}
-                className="text-gray-300 hover:text-white"
-              >
-                <Terminal className="h-4 w-4" />
-              </Button>
-
-              {/* Dev Role Switcher */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium text-white">
-                        {currentUser?.name}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadgeColor(currentRole)}`}>
-                        {getRoleLabel(currentRole)}
-                      </span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Switch Role (Dev)</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {mockUsers.map((user) => (
-                    <DropdownMenuItem
-                      key={user.id}
-                      onClick={() => switchRole(user.role)}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{user.name}</span>
-                        <span className="text-xs text-gray-500">{user.email}</span>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getRoleBadgeColor(user.role)}`}>
-                        {getRoleLabel(user.role)}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <RoleSwitcher />
             </div>
           </div>
-        </div>
-      </nav>
-    </>
+        )}
+      </div>
+    </nav>
   );
 }

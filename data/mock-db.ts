@@ -1,411 +1,540 @@
-export type UserRole = 'scoutmaster' | 'spl' | 'patrol_leader' | 'parent' | 'scout';
+export type UserRole = 'admin' | 'scoutmaster' | 'spl' | 'aspl' | 'patrol_leader' | 'parent' | 'scout';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  scoutId?: string;
-  patrolId?: string;
   rank?: string;
-  phone?: string;
-  address?: string;
-  emergencyContact?: string;
-  medicalFormStatus?: {
-    partA: boolean;
-    partB: boolean;
-    partC: boolean;
-  };
-}
-
-export interface Scout {
-  id: string;
-  name: string;
-  rank: string;
-  patrolId: string;
-  joinDate: string;
-  parentIds: string[];
-  phone?: string;
-  address?: string;
-  emergencyContact?: string;
-  medicalFormStatus?: {
-    partA: boolean;
-    partB: boolean;
-    partC: boolean;
-  };
-  eagleScout?: boolean;
+  patrol?: string;
+  phone: string;
+  address: string;
+  medicalStatus?: 'complete' | 'pending' | 'missing';
+  joinDate?: string;
   eagleDate?: string;
 }
 
-export interface Patrol {
-  id: string;
-  name: string;
-  leaderId?: string;
-  members: string[];
+export interface PermissionSlip {
+  scoutId: string;
+  signed: boolean;
+  signedDate?: string;
+  signedBy?: string;
 }
 
 export interface Trip {
   id: string;
   name: string;
-  description: string;
+  destination: string;
   startDate: string;
   endDate: string;
-  location: string;
-  cost?: number;
-  attendees?: string[];
-  permissionSlips?: {
-    scoutId: string;
-    signed: boolean;
-    signedDate?: string;
-  }[];
+  cost: number;
+  imageUrl: string;
+  description: string;
+  requirements: string[];
+  attendees: string[];
+  maxParticipants?: number;
+  status: 'planning' | 'open' | 'closed' | 'completed';
+  permissionSlips?: PermissionSlip[];
 }
 
 export interface Photo {
   id: string;
-  filename: string;
   url: string;
-  uploadDate: string;
-  aiTags: {
-    tag: string;
+  thumbnailUrl: string;
+  date: string;
+  event: string;
+  aiTags: string[];
+  verifiedTags: string[];
+  faceDetections: {
+    scoutId?: string;
     confidence: number;
     verified: boolean;
   }[];
-  event?: string;
-  scoutsIdentified?: string[];
+  confidenceScore: number;
+  location?: string;
+}
+
+export interface Document {
+  id: string;
+  name: string;
+  type: 'medical' | 'permission' | 'waiver' | 'policy' | 'newsletter';
+  url: string;
+  uploadDate: string;
+  uploadedBy: string;
+  status: 'pending' | 'approved' | 'rejected';
+  expirationDate?: string;
+  associatedTrip?: string;
 }
 
 export interface Newsletter {
   id: string;
   title: string;
-  month: string;
-  year: number;
-  pdfUrl: string;
-  summary?: string;
-}
-
-export interface MemoryOfDay {
-  id: string;
   date: string;
-  title: string;
-  description: string;
-  photo: string;
-  yearAgo: number;
+  url: string;
+  thumbnailUrl: string;
+  excerpt: string;
+  searchableContent: string;
+  month: string;
+  year: string;
 }
 
-// Mock Data
+export interface BlastMessage {
+  id: string;
+  title: string;
+  content: string;
+  sender: string;
+  recipients: string[];
+  channels: ('sms' | 'email' | 'app')[];
+  isEmergency: boolean;
+  sentDate: string;
+  readBy: string[];
+}
+
+// Mock Users - THE KEY CHARACTERS
 export const mockUsers: User[] = [
   {
-    id: 'scoutmaster-1',
+    id: '1',
     name: 'Mark Thompson',
     email: 'mark.thompson@troop78.org',
     role: 'scoutmaster',
     phone: '610-555-0123',
-    address: '123 Main St, Malvern, PA 19355'
+    address: '123 Eagle Way, Malvern, PA 19355',
+    medicalStatus: 'complete',
+    joinDate: '2018-01-01'
   },
   {
-    id: 'spl-1',
-    name: 'Danny Wilson',
-    email: 'danny.wilson@email.com',
+    id: '2',
+    name: 'Danny',
+    email: 'danny@troop78.org',
     role: 'spl',
-    scoutId: 'scout-1',
-    phone: '610-555-0124'
-  },
-  {
-    id: 'pl-1',
-    name: 'Kavya Patel',
-    email: 'kavya.patel@email.com',
-    role: 'patrol_leader',
-    scoutId: 'scout-2',
-    patrolId: 'patrol-1',
-    phone: '610-555-0125'
-  },
-  {
-    id: 'parent-1',
-    name: 'Jennifer Wilson',
-    email: 'j.wilson@email.com',
-    role: 'parent',
-    phone: '610-555-0126',
-    address: '456 Oak Ave, Wayne, PA 19087'
-  }
-];
-
-export const mockScouts: Scout[] = [
-  {
-    id: 'scout-1',
-    name: 'Danny Wilson',
     rank: 'Eagle Scout',
-    patrolId: 'patrol-1',
-    joinDate: '2020-03-15',
-    parentIds: ['parent-1'],
+    patrol: 'Leadership',
     phone: '610-555-0124',
-    eagleScout: true,
-    eagleDate: '2024-08-15',
-    medicalFormStatus: {
-      partA: true,
-      partB: true,
-      partC: true
-    }
+    address: '456 Scout Trail, Malvern, PA 19355',
+    medicalStatus: 'complete',
+    joinDate: '2019-03-15',
+    eagleDate: '2023-08-15'
   },
   {
-    id: 'scout-2',
-    name: 'Kavya Patel',
+    id: '3',
+    name: 'Kavya',
+    email: 'kavya@troop78.org',
+    role: 'aspl',
     rank: 'Life Scout',
-    patrolId: 'patrol-1',
-    joinDate: '2020-09-20',
-    parentIds: ['parent-2'],
-    medicalFormStatus: {
-      partA: true,
-      partB: true,
-      partC: false
-    }
+    patrol: 'Leadership',
+    phone: '610-555-0125',
+    address: '789 Merit Badge Blvd, Malvern, PA 19355',
+    medicalStatus: 'complete',
+    joinDate: '2020-01-20'
   },
   {
-    id: 'scout-3',
+    id: '4',
     name: 'Alex Rodriguez',
+    email: 'alex.rodriguez@troop78.org',
+    role: 'patrol_leader',
     rank: 'Star Scout',
-    patrolId: 'patrol-2',
-    joinDate: '2021-01-10',
-    parentIds: ['parent-3'],
-    medicalFormStatus: {
-      partA: true,
-      partB: false,
-      partC: false
-    }
+    patrol: 'Thunderbirds',
+    phone: '610-555-0126',
+    address: '321 Adventure Ave, Malvern, PA 19355',
+    medicalStatus: 'pending',
+    joinDate: '2021-05-10'
   },
   {
-    id: 'scout-4',
-    name: 'Michael Chen',
-    rank: 'First Class',
-    patrolId: 'patrol-1',
-    joinDate: '2021-06-01',
-    parentIds: ['parent-4']
-  },
-  {
-    id: 'scout-5',
+    id: '5',
     name: 'Sarah Johnson',
-    rank: 'Second Class',
-    patrolId: 'patrol-2',
-    joinDate: '2022-03-15',
-    parentIds: ['parent-5']
-  }
-];
-
-export const mockPatrols: Patrol[] = [
-  {
-    id: 'patrol-1',
-    name: 'Flaming Arrows',
-    leaderId: 'scout-2',
-    members: ['scout-1', 'scout-2', 'scout-4']
+    email: 'sarah.johnson@gmail.com',
+    role: 'parent',
+    phone: '610-555-0127',
+    address: '654 Family Circle, Malvern, PA 19355',
+    medicalStatus: 'complete'
   },
   {
-    id: 'patrol-2',
-    name: 'Thunder Hawks',
-    leaderId: 'scout-3',
-    members: ['scout-3', 'scout-5']
+    id: '6',
+    name: 'Michael Chen',
+    email: 'michael.chen@troop78.org',
+    role: 'scout',
+    rank: 'First Class',
+    patrol: 'Thunderbirds',
+    phone: '610-555-0128',
+    address: '987 Scout Hollow, Malvern, PA 19355',
+    medicalStatus: 'missing',
+    joinDate: '2022-09-01'
+  },
+  {
+    id: '7',
+    name: 'James Wilson',
+    email: 'james.wilson@troop78.org',
+    role: 'patrol_leader',
+    rank: 'Life Scout',
+    patrol: 'Eagles',
+    phone: '610-555-0129',
+    address: '147 Badge Boulevard, Malvern, PA 19355',
+    medicalStatus: 'complete',
+    joinDate: '2020-08-15'
+  },
+  {
+    id: '8',
+    name: 'Tyler Brooks',
+    email: 'tyler.brooks@troop78.org',
+    role: 'scout',
+    rank: 'Tenderfoot',
+    patrol: 'Eagles',
+    phone: '610-555-0130',
+    address: '258 Outdoor Way, Malvern, PA 19355',
+    medicalStatus: 'pending',
+    joinDate: '2023-02-01'
   }
 ];
 
+// Mock Trips - THE BIG ADVENTURES
 export const mockTrips: Trip[] = [
   {
-    id: 'trip-1',
-    name: 'Switzerland High Adventure 2026',
-    description: 'International Scout Centre Kandersteg - Alpine adventure including hiking, climbing, and cultural experiences.',
+    id: '1',
+    name: 'Switzerland Adventure 2026',
+    destination: 'Swiss Alps, Switzerland',
     startDate: '2026-07-15',
     endDate: '2026-07-29',
-    location: 'Kandersteg, Switzerland',
     cost: 3500,
-    attendees: ['scout-1', 'scout-2'],
+    imageUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
+    description: 'Two-week adventure through the Swiss Alps including hiking, cultural immersion, and outdoor skills development.',
+    requirements: ['Passport', 'Medical Form Part A', 'Medical Form Part B', 'International Travel Waiver', 'Permission Slip'],
+    attendees: ['2', '3', '4', '6', '7'],
+    maxParticipants: 12,
+    status: 'open',
     permissionSlips: [
-      { scoutId: 'scout-1', signed: true, signedDate: '2024-12-10' },
-      { scoutId: 'scout-2', signed: false }
+      { scoutId: '2', signed: true, signedDate: '2024-12-01', signedBy: 'Sarah Johnson' },
+      { scoutId: '3', signed: false },
+      { scoutId: '4', signed: true, signedDate: '2024-12-10', signedBy: 'James Rodriguez' },
+      { scoutId: '6', signed: false },
+      { scoutId: '7', signed: false }
     ]
   },
   {
-    id: 'trip-2',
-    name: 'Disney World Adventure 2026',
-    description: 'Behind the scenes tours, teamwork challenges, and magical experiences.',
-    startDate: '2026-04-12',
-    endDate: '2026-04-16',
-    location: 'Orlando, FL',
-    cost: 1200,
-    attendees: ['scout-3', 'scout-4', 'scout-5']
+    id: '2',
+    name: 'Disney World 2026',
+    destination: 'Orlando, Florida',
+    startDate: '2026-03-20',
+    endDate: '2026-03-24',
+    cost: 850,
+    imageUrl: 'https://images.unsplash.com/photo-1566552513520-5fe0a9156ba4?w=800',
+    description: 'Spring break adventure at Disney World with leadership development activities and fun.',
+    requirements: ['Medical Form Part A', 'Permission Slip', 'Packing List Acknowledgment'],
+    attendees: ['2', '4', '6', '7', '8'],
+    maxParticipants: 20,
+    status: 'open',
+    permissionSlips: [
+      { scoutId: '2', signed: true, signedDate: '2024-11-15', signedBy: 'Sarah Johnson' },
+      { scoutId: '4', signed: false },
+      { scoutId: '6', signed: false },
+      { scoutId: '7', signed: true, signedDate: '2024-11-20', signedBy: 'Mike Wilson' },
+      { scoutId: '8', signed: false }
+    ]
   },
   {
-    id: 'trip-3',
+    id: '3',
     name: 'Winter Camp at Horseshoe',
-    description: 'Traditional winter camping experience with cold weather activities.',
-    startDate: '2025-01-09',
-    endDate: '2025-01-11',
-    location: 'Camp Horseshoe Scout Reservation',
+    destination: 'Horseshoe Scout Reservation, PA',
+    startDate: '2024-12-28',
+    endDate: '2025-01-02',
+    cost: 200,
+    imageUrl: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800',
+    description: 'Traditional winter camping with cold weather training and New Year activities.',
+    requirements: ['Medical Form Part A', 'Permission Slip', 'Cold Weather Gear Checklist'],
+    attendees: ['2', '3', '4', '6', '7', '8'],
+    maxParticipants: 25,
+    status: 'completed'
+  },
+  {
+    id: '4',
+    name: 'Knoebels Amusement Park',
+    destination: 'Elysburg, PA',
+    startDate: '2024-08-15',
+    endDate: '2024-08-16',
     cost: 75,
-    attendees: ['scout-1', 'scout-2', 'scout-3', 'scout-4', 'scout-5']
+    imageUrl: 'https://images.unsplash.com/photo-1544075528-2c5b87fa7f52?w=800',
+    description: 'Day trip to historic Knoebels amusement park for summer fun and bonding.',
+    requirements: ['Permission Slip', 'Swimming Permission (if applicable)'],
+    attendees: ['2', '3', '4', '5', '6', '7', '8'],
+    maxParticipants: 30,
+    status: 'completed'
   },
   {
-    id: 'trip-4',
-    name: 'Knoebels Amusement Resort',
-    description: 'Annual troop fun day at Americas largest free-admission amusement park.',
-    startDate: '2025-06-14',
-    endDate: '2025-06-14',
-    location: 'Elysburg, PA',
-    cost: 45
-  },
-  {
-    id: 'trip-5',
-    name: 'Gettysburg National Battlefield',
-    description: 'Educational tour of Civil War battlefield with camping.',
-    startDate: '2025-09-20',
-    endDate: '2025-09-22',
-    location: 'Gettysburg, PA',
-    cost: 65
+    id: '5',
+    name: 'Gettysburg History Trek',
+    destination: 'Gettysburg, PA',
+    startDate: '2024-10-12',
+    endDate: '2024-10-13',
+    cost: 120,
+    imageUrl: 'https://images.unsplash.com/photo-1609208421685-d0e644052932?w=800',
+    description: 'Educational overnight trip exploring Civil War history and citizenship merit badge requirements.',
+    requirements: ['Medical Form Part A', 'Permission Slip', 'History Merit Badge Prerequisites'],
+    attendees: ['2', '4', '6', '7'],
+    maxParticipants: 15,
+    status: 'completed'
   }
 ];
 
+// Mock Photos - AI TAGGING SHOWCASE
 export const mockPhotos: Photo[] = [
   {
-    id: 'photo-1',
-    filename: 'winter_camp_2024_01.jpg',
-    url: '/images/winter-camp-1.jpg',
-    uploadDate: '2024-01-15',
-    aiTags: [
-      { tag: 'Winter Camp', confidence: 98, verified: true },
-      { tag: 'Horseshoe', confidence: 95, verified: true },
-      { tag: 'Snow Activities', confidence: 92, verified: false }
+    id: '1',
+    url: 'https://images.unsplash.com/photo-1504851149312-7a075b496cc7?w=800',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1504851149312-7a075b496cc7?w=200',
+    date: '2024-08-15',
+    event: 'Knoebels Trip',
+    aiTags: ['amusement park', 'scouts', 'group photo', 'summer'],
+    verifiedTags: ['amusement park', 'scouts'],
+    faceDetections: [
+      { scoutId: '2', confidence: 0.98, verified: true },
+      { scoutId: '4', confidence: 0.92, verified: false }
     ],
-    event: 'Winter Camp 2024',
-    scoutsIdentified: ['scout-1', 'scout-2']
+    confidenceScore: 0.95,
+    location: 'Knoebels Amusement Resort'
   },
   {
-    id: 'photo-2',
-    filename: 'archery_range_2024.jpg',
-    url: '/images/archery-range.jpg',
-    uploadDate: '2024-07-20',
-    aiTags: [
-      { tag: 'Archery', confidence: 99, verified: true },
-      { tag: 'Merit Badge', confidence: 88, verified: false },
-      { tag: 'Summer Camp', confidence: 85, verified: true }
+    id: '2',
+    url: 'https://images.unsplash.com/photo-1533873981879-b1f3e82c4d95?w=800',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1533873981879-b1f3e82c4d95?w=200',
+    date: '2024-12-30',
+    event: 'Winter Camp',
+    aiTags: ['camping', 'winter', 'snow', 'tents', 'cold weather'],
+    verifiedTags: ['camping', 'winter'],
+    faceDetections: [
+      { scoutId: '3', confidence: 0.89, verified: true }
     ],
-    event: 'Summer Camp 2024',
-    scoutsIdentified: ['scout-3', 'scout-4']
+    confidenceScore: 0.91,
+    location: 'Horseshoe Scout Reservation'
   },
   {
-    id: 'photo-3',
-    filename: 'eagle_ceremony_danny.jpg',
-    url: '/images/eagle-ceremony.jpg',
-    uploadDate: '2024-08-20',
-    aiTags: [
-      { tag: 'Eagle Scout', confidence: 99, verified: true },
-      { tag: 'Ceremony', confidence: 97, verified: true },
-      { tag: 'Danny Wilson', confidence: 95, verified: true }
+    id: '3',
+    url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200',
+    date: '2024-10-12',
+    event: 'Gettysburg Trip',
+    aiTags: ['hiking', 'history', 'battlefield', 'educational'],
+    verifiedTags: ['history', 'educational'],
+    faceDetections: [
+      { scoutId: '2', confidence: 0.94, verified: true },
+      { scoutId: '7', confidence: 0.87, verified: false }
     ],
-    event: 'Eagle Scout Ceremony',
-    scoutsIdentified: ['scout-1']
+    confidenceScore: 0.88,
+    location: 'Gettysburg National Battlefield'
+  },
+  {
+    id: '4',
+    url: 'https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=800',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=200',
+    date: '2024-06-15',
+    event: 'Summer Camp',
+    aiTags: ['campfire', 'evening', 'scouts', 'outdoor cooking'],
+    verifiedTags: ['campfire', 'scouts'],
+    faceDetections: [
+      { scoutId: '6', confidence: 0.85, verified: false },
+      { scoutId: '8', confidence: 0.91, verified: true }
+    ],
+    confidenceScore: 0.88,
+    location: 'Camp Horseshoe'
   }
 ];
 
+// Mock Documents - THE VAULT
+export const mockDocuments: Document[] = [
+  {
+    id: '1',
+    name: 'Medical Form Part A',
+    type: 'medical',
+    url: '/documents/medical-form-a.pdf',
+    uploadDate: '2024-01-15',
+    uploadedBy: '1',
+    status: 'approved'
+  },
+  {
+    id: '2',
+    name: 'Medical Form Part B',
+    type: 'medical',
+    url: '/documents/medical-form-b.pdf',
+    uploadDate: '2024-01-15',
+    uploadedBy: '1',
+    status: 'approved',
+    expirationDate: '2025-01-15'
+  },
+  {
+    id: '3',
+    name: 'Switzerland Trip Permission Slip',
+    type: 'permission',
+    url: '/documents/switzerland-permission.pdf',
+    uploadDate: '2024-11-01',
+    uploadedBy: '2',
+    status: 'pending',
+    associatedTrip: '1'
+  },
+  {
+    id: '4',
+    name: 'Whitewater Rafting Waiver',
+    type: 'waiver',
+    url: '/documents/whitewater-waiver.pdf',
+    uploadDate: '2024-06-15',
+    uploadedBy: '1',
+    status: 'approved'
+  }
+];
+
+// Mock Newsletters - AI OCR SEARCH
 export const mockNewsletters: Newsletter[] = [
   {
-    id: 'newsletter-1',
-    title: 'Troop 78 Newsletter - January 2025',
-    month: 'January',
-    year: 2025,
-    pdfUrl: '/newsletters/2025-01.pdf',
-    summary: 'Winter camp preparation, new merit badge opportunities, and upcoming Switzerland trip details.'
-  },
-  {
-    id: 'newsletter-2',
-    title: 'Troop 78 Newsletter - December 2024',
+    id: '1',
+    title: 'December 2023 - Eagle Recognitions',
+    date: '2023-12-01',
+    url: '/newsletters/december-2023.pdf',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+    excerpt: 'Congratulations to our newest Eagle Scouts and winter camp preparations.',
+    searchableContent: 'Eagle Scout recognition ceremony Danny Kavya winter camp preparations merit badge opportunities leadership development outdoor skills advancement ceremony celebration achievement rank advancement scouting excellence community service project leadership skills development',
     month: 'December',
-    year: 2024,
-    pdfUrl: '/newsletters/2024-12.pdf',
-    summary: 'Holiday court of honor, Eagle Scout recognitions, and year-end activities.'
+    year: '2023'
   },
   {
-    id: 'newsletter-3',
-    title: 'Troop 78 Newsletter - November 2024',
-    month: 'November',
-    year: 2024,
-    pdfUrl: '/newsletters/2024-11.pdf',
-    summary: 'Fall camping recap, advancement updates, and Disney World 2026 announcements.'
+    id: '2',
+    title: 'September 2024 - Fall Activities',
+    date: '2024-09-01',
+    url: '/newsletters/september-2024.pdf',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=200',
+    excerpt: 'Fall camping schedule and upcoming fundraising activities.',
+    searchableContent: 'fall camping schedule fundraising popcorn sales hiking trips merit badge sessions outdoor activities patrol competitions leadership development autumn adventures gear preparation weather safety camping skills advancement opportunities',
+    month: 'September',
+    year: '2024'
+  },
+  {
+    id: '3',
+    title: 'March 2024 - Spring Adventures',
+    date: '2024-03-01',
+    url: '/newsletters/march-2024.pdf',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200',
+    excerpt: 'Spring camping plans and summer trip preparations.',
+    searchableContent: 'spring camping plans summer trip preparations Switzerland 2026 Disney World planning sessions international travel passport requirements medical forms preparation hiking equipment outdoor skills development adventure planning leadership opportunities',
+    month: 'March',
+    year: '2024'
   }
 ];
 
-export const mockMemoriesOfDay: MemoryOfDay[] = [
+// Mock Blast Messages - COMMUNICATION SYSTEM
+export const mockBlastMessages: BlastMessage[] = [
   {
-    id: 'memory-1',
-    date: '2024-12-17',
-    title: 'Winter Camp Planning Meeting',
-    description: 'On this day 1 year ago, we held our annual winter camp planning meeting where scouts chose their cold weather activities and prepared for the adventure ahead.',
-    photo: '/images/winter-planning.jpg',
-    yearAgo: 1
+    id: '1',
+    title: 'Meeting Reminder - This Thursday',
+    content: 'Don\'t forget about this Thursday\'s troop meeting at 7:30 PM. We\'ll be working on knots and emergency preparedness.',
+    sender: '1',
+    recipients: ['2', '3', '4', '6', '7', '8'],
+    channels: ['sms', 'email'],
+    isEmergency: false,
+    sentDate: '2024-12-16T10:00:00Z',
+    readBy: ['2', '3']
   },
   {
-    id: 'memory-2',
-    date: '2024-12-16',
-    title: 'Eagle Board of Review',
-    description: '3 years ago today, three scouts completed their Eagle Scout Board of Review, marking the culmination of years of hard work and dedication.',
-    photo: '/images/eagle-board.jpg',
-    yearAgo: 3
+    id: '2',
+    title: '🚨 EMERGENCY: Weather Alert',
+    content: 'URGENT: Winter camp activities suspended due to severe weather. All scouts shelter in main lodge immediately.',
+    sender: '1',
+    recipients: ['all'],
+    channels: ['sms', 'email', 'app'],
+    isEmergency: true,
+    sentDate: '2024-12-30T08:15:00Z',
+    readBy: ['2', '3', '4', '6', '7', '8']
   }
 ];
 
-export const eagleScouts2024 = [
-  'Danny Wilson - August 15, 2024',
-  'Sarah Mitchell - June 10, 2024',
-  'Tyler Brooks - March 22, 2024'
-];
+// Helper Functions
+export const getUsersByRole = (role: UserRole): User[] => {
+  return mockUsers.filter(user => user.role === role);
+};
 
-export const historicalEagleScouts = [
-  '2023: Michael Thompson, Jessica Chen, Ryan O\'Connor',
-  '2022: Alex Rodriguez, Emma Davis, Nathan Kim',
-  '2021: Chloe Johnson, Marcus Williams, Isabella Garcia',
-  '2020: Ethan Moore, Sophia Taylor, Jacob Anderson'
-];
-
-// Utility functions for working with mock data
 export const getUserById = (id: string): User | undefined => {
   return mockUsers.find(user => user.id === id);
-};
-
-export const getScoutById = (id: string): Scout | undefined => {
-  return mockScouts.find(scout => scout.id === id);
-};
-
-export const getPatrolById = (id: string): Patrol | undefined => {
-  return mockPatrols.find(patrol => patrol.id === id);
 };
 
 export const getTripById = (id: string): Trip | undefined => {
   return mockTrips.find(trip => trip.id === id);
 };
 
-export const getScoutsByPatrol = (patrolId: string): Scout[] => {
-  return mockScouts.filter(scout => scout.patrolId === patrolId);
+export const getPhotosByEvent = (event: string): Photo[] => {
+  return mockPhotos.filter(photo => photo.event.toLowerCase().includes(event.toLowerCase()));
 };
 
-export const getCurrentMemoryOfDay = (): MemoryOfDay => {
-  const today = new Date().getDate() % mockMemoriesOfDay.length;
-  return mockMemoriesOfDay[today];
+export const searchNewsletters = (query: string): Newsletter[] => {
+  const searchTerm = query.toLowerCase();
+  return mockNewsletters.filter(newsletter =>
+    newsletter.searchableContent.toLowerCase().includes(searchTerm) ||
+    newsletter.title.toLowerCase().includes(searchTerm) ||
+    newsletter.excerpt.toLowerCase().includes(searchTerm)
+  );
 };
 
+export const getCurrentMemoryOfDay = (): Photo => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+  const index = dayOfYear % mockPhotos.length;
+  return mockPhotos[index];
+};
+
+// Constants for the Application
+export const PATROLS = ['Thunderbirds', 'Eagles', 'Leadership'];
+export const RANKS = ['Scout', 'Tenderfoot', 'Second Class', 'First Class', 'Star Scout', 'Life Scout', 'Eagle Scout'];
+export const DOCUMENT_TYPES = ['Medical Form Part A', 'Medical Form Part B', 'Permission Slip', 'Waiver', 'Packing List'];
+
+// Location Constants for the Interactive Map
+export const TROOP_LOCATION = {
+  address: '15 Mill Road, Malvern, PA 19355',
+  coordinates: { lat: 40.0348, lng: -75.5134 },
+  mapNote: 'Navigation Warning: Google Maps is inaccurate here. Follow the pin, not the street number.'
+};
+
+// Eagle Scouts 2024 - for the quick stats
+export const eagleScouts2024 = mockUsers.filter(user =>
+  user.eagleDate && user.eagleDate.startsWith('2024')
+);
+
+// Search functionality
 export const searchContent = (query: string) => {
-  const lowercaseQuery = query.toLowerCase();
-  const results = {
-    scouts: mockScouts.filter(scout =>
-      scout.name.toLowerCase().includes(lowercaseQuery) ||
-      scout.rank.toLowerCase().includes(lowercaseQuery)
-    ),
-    trips: mockTrips.filter(trip =>
-      trip.name.toLowerCase().includes(lowercaseQuery) ||
-      trip.location.toLowerCase().includes(lowercaseQuery)
-    ),
-    photos: mockPhotos.filter(photo =>
-      photo.aiTags.some(tag => tag.tag.toLowerCase().includes(lowercaseQuery)) ||
-      photo.event?.toLowerCase().includes(lowercaseQuery)
-    ),
-    newsletters: mockNewsletters.filter(newsletter =>
-      newsletter.title.toLowerCase().includes(lowercaseQuery) ||
-      newsletter.summary?.toLowerCase().includes(lowercaseQuery)
-    )
-  };
-  return results;
+  const searchTerm = query.toLowerCase();
+  const results = [];
+
+  // Search users
+  const userResults = mockUsers.filter(user =>
+    user.name.toLowerCase().includes(searchTerm) ||
+    user.email.toLowerCase().includes(searchTerm) ||
+    (user.rank && user.rank.toLowerCase().includes(searchTerm))
+  ).map(user => ({
+    id: user.id,
+    type: 'scout' as const,
+    title: user.name,
+    subtitle: user.role === 'scout' ? user.rank || 'Scout' : user.role,
+    description: user.email
+  }));
+
+  // Search trips
+  const tripResults = mockTrips.filter(trip =>
+    trip.name.toLowerCase().includes(searchTerm) ||
+    trip.destination.toLowerCase().includes(searchTerm) ||
+    trip.description.toLowerCase().includes(searchTerm)
+  ).map(trip => ({
+    id: trip.id,
+    type: 'trip' as const,
+    title: trip.name,
+    subtitle: trip.destination,
+    description: trip.description
+  }));
+
+  // Search photos
+  const photoResults = mockPhotos.filter(photo =>
+    photo.event.toLowerCase().includes(searchTerm) ||
+    photo.aiTags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+    photo.verifiedTags.some(tag => tag.toLowerCase().includes(searchTerm))
+  ).map(photo => ({
+    id: photo.id,
+    type: 'photo' as const,
+    title: photo.event,
+    subtitle: photo.date,
+    description: photo.verifiedTags.join(', ')
+  }));
+
+  return [...userResults, ...tripResults, ...photoResults];
 };

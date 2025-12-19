@@ -2,297 +2,362 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { getCurrentMemoryOfDay, mockTrips, mockPhotos, eagleScouts2024 } from '@/data/mock-db';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { getCurrentMemoryOfDay, mockTrips, mockUsers, TROOP_LOCATION } from '@/data/mock-db';
 import { useAppStore } from '@/lib/store';
-import { SynologySync } from '@/components/synology-sync';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Calendar,
   Camera,
   Award,
   MapPin,
   Users,
-  Zap,
   ArrowRight,
-  Star,
-  Mountain,
-  Globe
+  Navigation,
+  AlertTriangle,
+  Share2,
+  ChevronRight
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { currentRole, setTerminalOpen } = useAppStore();
+  const { currentRole } = useAppStore();
   const [memoryOfDay, setMemoryOfDay] = useState(getCurrentMemoryOfDay());
   const [mounted, setMounted] = useState(false);
+  const [shareLocation, setShareLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     setMemoryOfDay(getCurrentMemoryOfDay());
   }, []);
 
+  const handleShareLocation = () => {
+    if (!shareLocation) {
+      // Simulate getting user location (would use real geolocation in production)
+      setUserLocation({ lat: 40.0355, lng: -75.5120 });
+    } else {
+      setUserLocation(null);
+    }
+    setShareLocation(!shareLocation);
+  };
+
   if (!mounted) return null;
 
-  const upcomingTrips = mockTrips.slice(0, 3);
-  const recentPhotos = mockPhotos.slice(0, 3);
+  const upcomingTrips = mockTrips.filter(t => t.status === 'open').slice(0, 3);
+  const activeScouts = mockUsers.filter(u => u.role === 'scout' || u.role === 'patrol_leader').length;
+  const eagleScouts = mockUsers.filter(u => u.eagleDate).length;
 
   const quickStats = [
-    { label: 'Active Scouts', value: '45', icon: Users, color: 'text-blue-400' },
-    { label: 'Eagle Scouts 2024', value: eagleScouts2024.length.toString(), icon: Award, color: 'text-yellow-400' },
-    { label: 'Photos Archived', value: '14,247', icon: Camera, color: 'text-green-400' },
-    { label: 'Upcoming Trips', value: upcomingTrips.length.toString(), icon: MapPin, color: 'text-purple-400' },
+    { label: 'Active Scouts', value: activeScouts.toString(), icon: Users, color: 'text-blue-600' },
+    { label: 'Eagle Scouts', value: eagleScouts.toString(), icon: Award, color: 'text-amber-600' },
+    { label: 'Photos Archived', value: '14,247', icon: Camera, color: 'text-green-600' },
+    { label: 'Upcoming Trips', value: upcomingTrips.length.toString(), icon: MapPin, color: 'text-red-900' },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center py-16 px-4"
-      >
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-8"
-          >
-            <h1 className="text-6xl font-bold text-white mb-4">
-              Willistown{' '}
-              <span className="text-troop-maroon">Troop 78</span>
-            </h1>
-            <p className="text-xl text-gray-300 mb-2">Est. 1978 • Modernizing Adventure</p>
-            <div className="flex items-center justify-center space-x-2 text-sm text-gray-400">
-              <MapPin className="h-4 w-4" />
-              <span>15 Mill Road, Malvern, PA</span>
-            </div>
-          </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto"
-          >
-            Welcome to the future of scouting management. Our high-tech platform brings
-            together 45+ years of tradition with cutting-edge digital innovation.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex flex-wrap justify-center gap-4"
-          >
-            <Button
-              variant="maroon"
-              size="lg"
-              className="text-lg px-8"
-              onClick={() => setTerminalOpen(true)}
-            >
-              <Zap className="mr-2 h-5 w-5" />
-              Sync Archive
-            </Button>
-            <Button variant="outline" size="lg" className="text-lg">
-              View Photo Vault
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </motion.div>
-        </div>
-      </motion.section>
-
-      {/* Quick Stats */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        {quickStats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
+    <div className="min-h-screen bg-slate-50">
+      {/* HERO SECTION - Solid Maroon, NO GRADIENTS */}
+      <section className="hero-maroon py-20">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 + index * 0.1 }}
+            className="text-4xl md:text-5xl font-bold mb-4"
           >
-            <Card className="bg-black/40 border-white/10">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">{stat.label}</p>
-                    <p className="text-3xl font-bold text-white">{stat.value}</p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                </div>
-              </CardContent>
-            </Card>
+            Willistown Troop 78
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-white/80 mb-8"
+          >
+            Est. 1978 · Malvern, Pennsylvania
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-wrap justify-center gap-4"
+          >
+            <Link href="/trips">
+              <Button className="bg-white text-red-900 hover:bg-slate-100 font-medium">
+                View Upcoming Trips
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/photos">
+              <Button variant="outline" className="border-white text-white hover:bg-white/10">
+                Explore Photo Archive
+              </Button>
+            </Link>
           </motion.div>
-        ))}
-      </motion.section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Memory of the Day */}
-        <motion.section
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 1.2 }}
-          className="lg:col-span-2"
-        >
-          <Card className="bg-gradient-to-br from-troop-maroon/20 to-purple-900/20 border-troop-maroon/30 maroon-glow">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-white">
-                <Star className="h-5 w-5 text-troop-gold" />
-                <span>Memory of the Day</span>
-              </CardTitle>
-              <CardDescription className="text-gray-300">
-                {memoryOfDay.yearAgo} year{memoryOfDay.yearAgo > 1 ? 's' : ''} ago today
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="md:w-1/3">
-                  <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center">
-                    <Camera className="h-12 w-12 text-gray-600" />
-                  </div>
-                </div>
-                <div className="md:w-2/3">
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {memoryOfDay.title}
-                  </h3>
-                  <p className="text-gray-300 leading-relaxed">
-                    {memoryOfDay.description}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.section>
-
-        {/* Quick Actions */}
-        <motion.section
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 1.4 }}
-        >
-          <Card className="bg-black/40 border-white/10">
-            <CardHeader>
-              <CardTitle className="text-white">Quick Actions</CardTitle>
-              <CardDescription>Access key features</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="ghost" className="w-full justify-start text-left">
-                <Mountain className="mr-2 h-4 w-4" />
-                Winter Camp Check-in
-              </Button>
-              <Button variant="ghost" className="w-full justify-start text-left">
-                <Globe className="mr-2 h-4 w-4" />
-                Switzerland 2026 Forms
-              </Button>
-              <Button variant="ghost" className="w-full justify-start text-left">
-                <Award className="mr-2 h-4 w-4" />
-                Eagle Scout Progress
-              </Button>
-              <Button variant="ghost" className="w-full justify-start text-left">
-                <Camera className="mr-2 h-4 w-4" />
-                Upload Event Photos
-              </Button>
-            </CardContent>
-          </Card>
-        </motion.section>
-      </div>
-
-      {/* Upcoming Trips */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.6 }}
-      >
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Upcoming Adventures</h2>
-          <p className="text-gray-400">Next trips on the calendar</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {upcomingTrips.map((trip, index) => (
+      </section>
+
+      {/* Quick Stats */}
+      <section className="py-8 border-b border-slate-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {quickStats.map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center gap-3 p-4"
+              >
+                <stat.icon className={`h-8 w-8 ${stat.color}`} />
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                  <p className="text-sm text-slate-500">{stat.label}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content - 2 columns */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Memory of the Day - Polaroid Style */}
             <motion.div
-              key={trip.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.7 + index * 0.1 }}
+              transition={{ delay: 0.3 }}
             >
-              <Card className="bg-black/40 border-white/10 hover:border-troop-maroon/50 transition-colors">
-                <CardHeader>
-                  <CardTitle className="text-white text-lg">{trip.name}</CardTitle>
-                  <CardDescription className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>{new Date(trip.startDate).toLocaleDateString()}</span>
-                  </CardDescription>
+              <Card className="troop-card overflow-hidden">
+                <CardHeader className="border-b border-slate-200">
+                  <CardTitle className="flex items-center gap-2 text-slate-900">
+                    <Camera className="h-5 w-5 text-red-900" />
+                    Memory of the Day
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-2 text-sm text-gray-400 mb-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>{trip.location}</span>
-                  </div>
-                  <p className="text-gray-300 text-sm leading-relaxed">
-                    {trip.description}
-                  </p>
-                  {trip.cost && (
-                    <div className="mt-3 text-troop-gold font-semibold">
-                      ${trip.cost}
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Polaroid Frame */}
+                    <div className="bg-white p-3 shadow-lg border border-slate-200 rotate-[-2deg] hover:rotate-0 transition-transform">
+                      <img
+                        src={memoryOfDay.url}
+                        alt={memoryOfDay.event}
+                        className="w-full md:w-64 h-48 object-cover"
+                      />
+                      <div className="pt-3 text-center">
+                        <p className="font-medium text-slate-900">{memoryOfDay.event}</p>
+                        <p className="text-sm text-slate-500">{memoryOfDay.date}</p>
+                      </div>
                     </div>
+                    {/* Memory Details */}
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 mb-2">{memoryOfDay.event}</h3>
+                        <p className="text-slate-600">
+                          {memoryOfDay.location && `Location: ${memoryOfDay.location}`}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 mb-2">AI Detected Tags:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {memoryOfDay.verifiedTags.map(tag => (
+                            <span key={tag} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
+                              {tag}
+                            </span>
+                          ))}
+                          {memoryOfDay.aiTags.filter(t => !memoryOfDay.verifiedTags.includes(t)).map(tag => (
+                            <span key={tag} className="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded-full border border-slate-200">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <Link href="/photos" className="inline-flex items-center text-red-900 hover:text-red-800 font-medium text-sm">
+                        View Full Archive <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Interactive Map */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Card className="troop-card overflow-hidden">
+                <CardHeader className="border-b border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-slate-900">
+                      <MapPin className="h-5 w-5 text-red-900" />
+                      Troop Meeting Location
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShareLocation}
+                      className={shareLocation ? 'bg-blue-50 border-blue-300 text-blue-700' : ''}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      {shareLocation ? 'Sharing Location' : 'Share My Location'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {/* Map Container */}
+                  <div className="relative h-64 bg-slate-200">
+                    {/* Placeholder Map Background */}
+                    <div className="absolute inset-0 bg-slate-300">
+                      {/* Map Grid Lines */}
+                      <svg className="absolute inset-0 w-full h-full opacity-20">
+                        <defs>
+                          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#666" strokeWidth="0.5"/>
+                          </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)" />
+                      </svg>
+                    </div>
+
+                    {/* Maroon Pin */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full">
+                      <div className="maroon-pin animate-bounce" />
+                    </div>
+
+                    {/* User Location (Blue Dot) */}
+                    {userLocation && (
+                      <div className="absolute top-[45%] left-[48%] -translate-x-1/2 -translate-y-1/2">
+                        <div className="relative">
+                          <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg" />
+                          <div className="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Navigation Warning Tooltip */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-amber-800 text-sm">Navigation Warning</p>
+                          <p className="text-amber-700 text-xs">{TROOP_LOCATION.mapNote}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Address Bar */}
+                  <div className="p-4 bg-slate-50 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Navigation className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-medium text-slate-900">{TROOP_LOCATION.address}</span>
+                      </div>
+                      <a
+                        href={`https://maps.google.com/?q=${TROOP_LOCATION.coordinates.lat},${TROOP_LOCATION.coordinates.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-red-900 hover:text-red-800 font-medium"
+                      >
+                        Get Directions
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          {/* Sidebar - 1 column */}
+          <div className="space-y-6">
+            {/* Upcoming Trips */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Card className="troop-card">
+                <CardHeader className="border-b border-slate-200">
+                  <CardTitle className="flex items-center gap-2 text-slate-900 text-lg">
+                    <Calendar className="h-5 w-5 text-red-900" />
+                    Upcoming Trips
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-slate-200">
+                    {upcomingTrips.map((trip) => (
+                      <Link
+                        key={trip.id}
+                        href={`/trips`}
+                        className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
+                      >
+                        <img
+                          src={trip.imageUrl}
+                          alt={trip.name}
+                          className="w-16 h-16 rounded-lg object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{trip.name}</p>
+                          <p className="text-sm text-slate-500">{trip.destination}</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {new Date(trip.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="p-4 border-t border-slate-200">
+                    <Link href="/trips">
+                      <Button variant="outline" className="w-full">
+                        View All Trips
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Quick Actions based on role */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <Card className="troop-card">
+                <CardHeader className="border-b border-slate-200">
+                  <CardTitle className="text-slate-900 text-lg">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-2">
+                  <Link href="/documents" className="block">
+                    <Button variant="outline" className="w-full justify-start">
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Upload Documents
+                    </Button>
+                  </Link>
+                  <Link href="/trips" className="block">
+                    <Button variant="outline" className="w-full justify-start">
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Sign Permission Slips
+                    </Button>
+                  </Link>
+                  {['scoutmaster', 'admin', 'spl'].includes(currentRole) && (
+                    <Link href="/communication" className="block">
+                      <Button className="w-full justify-start troop-button-primary">
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        Send Announcement
+                      </Button>
+                    </Link>
                   )}
                 </CardContent>
               </Card>
             </motion.div>
-          ))}
+          </div>
         </div>
-      </motion.section>
-
-      {/* Recent Photos Preview */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.9 }}
-        className="pb-8"
-      >
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">Recent Photo Uploads</h2>
-          <p className="text-gray-400">Latest memories from our adventures</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {recentPhotos.map((photo, index) => (
-            <motion.div
-              key={photo.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 2.0 + index * 0.1 }}
-            >
-              <Card className="bg-black/40 border-white/10 overflow-hidden">
-                <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  <Camera className="h-12 w-12 text-gray-600" />
-                </div>
-                <CardContent className="p-4">
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {photo.aiTags.slice(0, 2).map((tag) => (
-                      <span
-                        key={tag.tag}
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          tag.verified ? 'bg-troop-maroon text-white' : 'bg-gray-700 text-gray-300'
-                        }`}
-                      >
-                        {tag.tag} {tag.confidence}%
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-400">{photo.event}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.section>
-
-      {/* Synology Sync Component */}
-      <SynologySync />
+      </div>
     </div>
   );
 }
