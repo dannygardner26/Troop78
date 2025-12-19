@@ -29,15 +29,29 @@ export default function NewslettersPage() {
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
-
-  // Search and filter newsletters
+  // All hooks must be called before any early return
   const filteredNewsletters = useMemo(() => {
     if (!searchQuery.trim()) {
       return mockNewsletters;
     }
     return searchNewsletters(searchQuery);
   }, [searchQuery]);
+
+  const newslettersByYear = useMemo(() => {
+    const grouped: Record<string, Newsletter[]> = {};
+    filteredNewsletters.forEach(nl => {
+      if (!grouped[nl.year]) {
+        grouped[nl.year] = [];
+      }
+      grouped[nl.year].push(nl);
+    });
+    return grouped;
+  }, [filteredNewsletters]);
+
+  const years = Object.keys(newslettersByYear).sort((a, b) => Number(b) - Number(a));
+
+  // Early return AFTER all hooks
+  if (!mounted) return null;
 
   // Highlight matched text
   const highlightText = (text: string, query: string) => {
@@ -75,20 +89,6 @@ export default function NewslettersPage() {
 
     return excerpt;
   };
-
-  // Group newsletters by year
-  const newslettersByYear = useMemo(() => {
-    const grouped: Record<string, Newsletter[]> = {};
-    filteredNewsletters.forEach(nl => {
-      if (!grouped[nl.year]) {
-        grouped[nl.year] = [];
-      }
-      grouped[nl.year].push(nl);
-    });
-    return grouped;
-  }, [filteredNewsletters]);
-
-  const years = Object.keys(newslettersByYear).sort((a, b) => Number(b) - Number(a));
 
   return (
     <div className="min-h-screen bg-slate-50">

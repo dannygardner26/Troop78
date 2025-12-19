@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Eye, Shield, Users, User, Star } from 'lucide-react';
+import { ChevronDown, Eye, Shield, Users, User, Star, UserX } from 'lucide-react';
 
 const roleIcons: Record<UserRole, React.ReactNode> = {
   admin: <Shield className="h-4 w-4" />,
@@ -21,10 +21,11 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
   patrol_leader: <Users className="h-4 w-4" />,
   parent: <User className="h-4 w-4" />,
   scout: <User className="h-4 w-4" />,
+  guest: <UserX className="h-4 w-4" />,
 };
 
 // Available roles for the dev switcher (in order of permission level)
-const switchableRoles: UserRole[] = ['scoutmaster', 'spl', 'patrol_leader', 'parent', 'scout'];
+const switchableRoles: UserRole[] = ['scoutmaster', 'spl', 'patrol_leader', 'parent', 'scout', 'guest'];
 
 export function RoleSwitcher() {
   const { currentUser, currentRole, switchRole } = useAppStore();

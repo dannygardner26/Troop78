@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockUsers, User, PATROLS, RANKS } from '@/data/mock-db';
+import { mockUsers, User, PATROLS, RANKS, getUserById } from '@/data/mock-db';
 import {
   useAppStore,
   canViewPhoneNumber,
@@ -46,9 +46,18 @@ export default function RosterPage() {
   if (!mounted) return null;
 
   // Check if current role can access this page
-  const canAccessRoster = ['scoutmaster', 'admin', 'spl', 'aspl', 'patrol_leader'].includes(currentRole);
+  const canAccessFullRoster = ['scoutmaster', 'admin', 'spl', 'aspl', 'patrol_leader'].includes(currentRole);
+  const isParent = currentRole === 'parent';
 
-  if (!canAccessRoster) {
+  // Get parent's children for the "My Scouts" view
+  const getParentChildren = (): User[] => {
+    if (!isParent || !currentUser?.children) return [];
+    return currentUser.children.map(childId => getUserById(childId)).filter((u): u is User => u !== undefined);
+  };
+
+  const parentChildren = getParentChildren();
+
+  if (!canAccessFullRoster && !isParent) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="troop-card max-w-md w-full">
@@ -58,7 +67,7 @@ export default function RosterPage() {
             </div>
             <h2 className="text-xl font-bold text-slate-900 mb-2">Access Restricted</h2>
             <p className="text-slate-500 mb-4">
-              The roster is only accessible to Scoutmasters, SPL, ASPL, and Patrol Leaders.
+              The roster is only accessible to Scoutmasters, SPL, ASPL, Patrol Leaders, and Parents.
             </p>
             <p className="text-sm text-slate-400">
               Current role: <span className="font-medium">{getRoleLabel(currentRole)}</span>
@@ -164,6 +173,164 @@ export default function RosterPage() {
   };
 
   const privacy = getPrivacySummary();
+
+  // Parent-specific view - My Scouts
+  if (isParent) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="h-6 w-6 text-red-900" />
+                  My Scouts
+                </h1>
+                <p className="text-slate-500 mt-1">
+                  Manage your children's scout information
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200">
+                <UserIcon className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-700">Parent Dashboard</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {parentChildren.length === 0 ? (
+            <Card className="troop-card">
+              <CardContent className="p-8 text-center">
+                <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No Scouts Linked</h3>
+                <p className="text-slate-500">
+                  Contact your Scoutmaster to link your children to your account.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {parentChildren.map((child, index) => (
+                <motion.div
+                  key={child.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card className="troop-card">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                            <UserIcon className="h-8 w-8 text-slate-500" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl">{child.name}</CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              {child.patrol && (
+                                <span className="text-sm px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                                  {child.patrol}
+                                </span>
+                              )}
+                              {child.rank && (
+                                <span className="text-sm text-slate-500">{child.rank}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {child.medicalStatus && (
+                          <div>
+                            {child.medicalStatus === 'complete' ? (
+                              <span className="flex items-center gap-1 px-3 py-1.5 bg-green-50 text-green-700 text-sm rounded-full border border-green-200">
+                                <CheckCircle className="h-4 w-4" />
+                                Medical Complete
+                              </span>
+                            ) : child.medicalStatus === 'pending' ? (
+                              <span className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 text-sm rounded-full border border-amber-200">
+                                <Clock className="h-4 w-4" />
+                                Medical Pending
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 text-sm rounded-full border border-red-200">
+                                <AlertCircle className="h-4 w-4" />
+                                Medical Missing
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {/* Contact Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="p-3 bg-slate-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+                            <Mail className="h-4 w-4" />
+                            Email
+                          </div>
+                          <p className="font-medium text-slate-900">{child.email}</p>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+                            <Phone className="h-4 w-4" />
+                            Phone
+                          </div>
+                          <p className="font-medium text-slate-900">{child.phone}</p>
+                        </div>
+                        {child.joinDate && (
+                          <div className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+                              <Award className="h-4 w-4" />
+                              Member Since
+                            </div>
+                            <p className="font-medium text-slate-900">
+                              {new Date(child.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="border-t border-slate-200 pt-4">
+                        <h4 className="text-sm font-medium text-slate-700 mb-3">Quick Actions</h4>
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm">
+                            <Shield className="h-4 w-4 mr-2" />
+                            Update Medical Forms
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Award className="h-4 w-4 mr-2" />
+                            View Advancement
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Mail className="h-4 w-4 mr-2" />
+                            Contact Scoutmaster
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Eagle Scout Badge */}
+                      {child.eagleDate && (
+                        <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="flex items-center gap-2 text-amber-700">
+                            <Award className="h-5 w-5" />
+                            <span className="font-medium">Eagle Scout</span>
+                            <span className="text-sm">- Achieved {new Date(child.eagleDate).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">

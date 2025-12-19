@@ -34,6 +34,7 @@ export default function TripsPage() {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [signingForScoutId, setSigningForScoutId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -73,16 +74,17 @@ export default function TripsPage() {
     setSheetOpen(true);
   };
 
-  const openSignatureModal = () => {
+  const openSignatureModal = (scoutId: string) => {
+    setSigningForScoutId(scoutId);
     setSignatureModalOpen(true);
   };
 
   const handleSignatureComplete = (signatureData: string) => {
-    if (selectedTrip && currentUser) {
+    if (selectedTrip && currentUser && signingForScoutId) {
       setTrips(prev => prev.map(trip => {
         if (trip.id === selectedTrip.id) {
           const updatedPermissionSlips = trip.permissionSlips?.map(slip =>
-            slip.scoutId === currentUser.id
+            slip.scoutId === signingForScoutId
               ? { ...slip, signed: true, signedDate: new Date().toISOString(), signedBy: currentUser.name }
               : slip
           ) || [];
@@ -93,12 +95,13 @@ export default function TripsPage() {
       setSelectedTrip(prev => {
         if (!prev) return prev;
         const updatedPermissionSlips = prev.permissionSlips?.map(slip =>
-          slip.scoutId === currentUser.id
+          slip.scoutId === signingForScoutId
             ? { ...slip, signed: true, signedDate: new Date().toISOString(), signedBy: currentUser.name }
             : slip
         ) || [];
         return { ...prev, permissionSlips: updatedPermissionSlips };
       });
+      setSigningForScoutId(null);
     }
   };
 
@@ -106,9 +109,23 @@ export default function TripsPage() {
   const completedTrips = trips.filter(trip => new Date(trip.endDate) < new Date());
 
   // Check if current user has a permission slip for this trip
+  // Parents can sign for their children
+  const getUserPermissions = (trip: Trip) => {
+    if (!trip.permissionSlips || !currentUser) return [];
+
+    if (currentRole === 'parent' && currentUser.children) {
+      // Parents see permission slips for their children
+      return trip.permissionSlips.filter(slip => currentUser.children!.includes(slip.scoutId));
+    }
+
+    // Scouts/others see their own permission slip
+    return trip.permissionSlips.filter(slip => slip.scoutId === currentUser.id);
+  };
+
+  // Legacy helper for backwards compatibility
   const getUserPermission = (trip: Trip) => {
-    if (!trip.permissionSlips || !currentUser) return null;
-    return trip.permissionSlips.find(slip => slip.scoutId === currentUser.id);
+    const permissions = getUserPermissions(trip);
+    return permissions.length > 0 ? permissions[0] : null;
   };
 
   return (
@@ -368,8 +385,8 @@ export default function TripsPage() {
                   </h4>
 
                   {(() => {
-                    const userPermission = getUserPermission(selectedTrip);
-                    if (!userPermission) {
+                    const userPermissions = getUserPermissions(selectedTrip);
+                    if (userPermissions.length === 0) {
                       return (
                         <div className="p-4 bg-slate-50 rounded-lg text-center text-slate-500 text-sm">
                           No permission slip required for your role
@@ -377,46 +394,60 @@ export default function TripsPage() {
                       );
                     }
 
-                    if (userPermission.signed) {
-                      return (
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 bg-green-100 rounded-full">
-                              <CheckCircle className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-green-800">Permission Slip Signed</p>
-                              <p className="text-sm text-green-600">
-                                Signed by {userPermission.signedBy} on {new Date(userPermission.signedDate!).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <Button variant="outline" className="w-full" size="sm">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download Signed PDF
-                          </Button>
-                        </div>
-                      );
-                    }
-
+                    // For parents with multiple children, show each child's slip
                     return (
-                      <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 bg-amber-100 rounded-full">
-                            <AlertCircle className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-amber-800">Permission Slip Required</p>
-                            <p className="text-sm text-amber-600">Digital signature needed to participate</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={openSignatureModal}
-                          className="w-full troop-button-primary"
-                        >
-                          <PenTool className="h-4 w-4 mr-2" />
-                          Sign Permission Slip
-                        </Button>
+                      <div className="space-y-3">
+                        {userPermissions.map((slip) => {
+                          const scout = getUserById(slip.scoutId);
+                          const scoutName = scout?.name || 'Unknown Scout';
+
+                          if (slip.signed) {
+                            return (
+                              <div key={slip.scoutId} className="p-4 bg-green-50 rounded-lg border border-green-200">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="p-2 bg-green-100 rounded-full">
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-green-800">
+                                      {currentRole === 'parent' ? `${scoutName}'s Permission Slip` : 'Permission Slip'} Signed
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                      Signed by {slip.signedBy} on {new Date(slip.signedDate!).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button variant="outline" className="w-full" size="sm">
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download Signed PDF
+                                </Button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={slip.scoutId} className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2 bg-amber-100 rounded-full">
+                                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-amber-800">
+                                    {currentRole === 'parent' ? `${scoutName}'s Permission Slip` : 'Permission Slip'} Required
+                                  </p>
+                                  <p className="text-sm text-amber-600">Digital signature needed to participate</p>
+                                </div>
+                              </div>
+                              <Button
+                                onClick={() => openSignatureModal(slip.scoutId)}
+                                className="w-full troop-button-primary"
+                              >
+                                <PenTool className="h-4 w-4 mr-2" />
+                                Sign Permission Slip
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })()}

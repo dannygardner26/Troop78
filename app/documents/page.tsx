@@ -1,12 +1,22 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { mockDocuments, Document, DOCUMENT_TYPES } from '@/data/mock-db';
+import { motion } from 'framer-motion';
+import {
+  mockMasterDocuments,
+  mockUserSubmissions,
+  mockUsers,
+  MasterDocument,
+  UserSubmission,
+  getUserById,
+  getTripById
+} from '@/data/mock-db';
 import { useAppStore, canApproveDocuments, getRoleLabel } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { PermissionSlipTemplate } from '@/components/permission-slip-template';
+import { SignatureCanvasComponent } from '@/components/signature-canvas';
 import {
   FileText,
   Upload,
@@ -18,24 +28,29 @@ import {
   Folder,
   File,
   Search,
-  Filter,
-  MoreVertical,
-  Plus,
+  Users,
   Shield,
   Heart,
   Calendar,
+  PenTool,
+  X,
   ChevronRight,
-  X
+  AlertCircle
 } from 'lucide-react';
 
-type DocumentCategory = 'all' | 'medical' | 'permission' | 'waiver' | 'policy';
+type ViewTab = 'master' | 'submissions';
 
 export default function DocumentsPage() {
-  const { currentRole } = useAppStore();
+  const { currentRole, currentUser } = useAppStore();
   const [mounted, setMounted] = useState(false);
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
-  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory>('all');
+  const [activeTab, setActiveTab] = useState<ViewTab>('master');
   const [searchQuery, setSearchQuery] = useState('');
+  const [masterDocuments, setMasterDocuments] = useState<MasterDocument[]>(mockMasterDocuments);
+  const [submissions, setSubmissions] = useState<UserSubmission[]>(mockUserSubmissions);
+  const [selectedDocument, setSelectedDocument] = useState<MasterDocument | null>(null);
+  const [selectedScoutId, setSelectedScoutId] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -47,68 +62,71 @@ export default function DocumentsPage() {
 
   if (!mounted) return null;
 
-  const categories = [
-    { id: 'all', label: 'All Documents', icon: Folder, count: documents.length },
-    { id: 'medical', label: 'Medical Forms', icon: Heart, count: documents.filter(d => d.type === 'medical').length },
-    { id: 'permission', label: 'Permission Slips', icon: FileText, count: documents.filter(d => d.type === 'permission').length },
-    { id: 'waiver', label: 'Waivers', icon: Shield, count: documents.filter(d => d.type === 'waiver').length },
-    { id: 'policy', label: 'Policies', icon: File, count: documents.filter(d => d.type === 'policy').length },
-  ];
+  const isLeader = currentRole === 'scoutmaster' || currentRole === 'admin' || currentRole === 'spl';
+  const isParent = currentRole === 'parent';
 
-  // Filter documents
-  const filteredDocuments = documents.filter(doc => {
-    const matchesCategory = selectedCategory === 'all' || doc.type === selectedCategory;
-    const matchesSearch = !searchQuery ||
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Get documents relevant to the current user
+  const getRelevantDocuments = (): MasterDocument[] => {
+    if (isParent && currentUser?.children) {
+      // Parents see documents required for their children
+      return masterDocuments.filter(doc => {
+        if (doc.requiredFor === 'all_scouts') return true;
+        if (doc.requiredFor === 'trip' && doc.associatedTrip) {
+          // Check if any child is on this trip
+          const trip = getTripById(doc.associatedTrip);
+          return trip?.attendees.some(id => currentUser.children?.includes(id));
+        }
+        return false;
+      });
+    }
+    return masterDocuments;
+  };
 
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-200">
-            <CheckCircle className="h-3 w-3" />
-            Approved
-          </span>
-        );
-      case 'pending':
-        return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 text-xs rounded-full border border-amber-200">
-            <Clock className="h-3 w-3" />
-            Pending
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 text-xs rounded-full border border-red-200">
-            <XCircle className="h-3 w-3" />
-            Rejected
-          </span>
-        );
-      default:
-        return null;
+  // Check if a document is signed for a specific scout
+  const getSubmissionForScout = (docId: string, scoutId: string): UserSubmission | undefined => {
+    return submissions.find(s => s.masterDocumentId === docId && s.submittedFor === scoutId);
+  };
+
+  // Get all scouts (for leader view)
+  const allScouts = mockUsers.filter(u => u.role === 'scout' || u.role === 'patrol_leader' || u.role === 'spl' || u.role === 'aspl');
+
+  // Get submission stats for a document
+  const getSubmissionStats = (docId: string) => {
+    const doc = masterDocuments.find(d => d.id === docId);
+    if (!doc) return { signed: 0, total: 0 };
+
+    let relevantScouts = allScouts;
+    if (doc.requiredFor === 'trip' && doc.associatedTrip) {
+      const trip = getTripById(doc.associatedTrip);
+      relevantScouts = allScouts.filter(s => trip?.attendees.includes(s.id));
+    }
+
+    const signed = relevantScouts.filter(scout =>
+      submissions.some(s => s.masterDocumentId === docId && s.submittedFor === scout.id)
+    ).length;
+
+    return { signed, total: relevantScouts.length };
+  };
+
+  // Handle signature completion
+  const handleSignatureComplete = (signatureData: string) => {
+    if (selectedDocument && selectedScoutId && currentUser) {
+      const newSubmission: UserSubmission = {
+        id: `sub-${Date.now()}`,
+        masterDocumentId: selectedDocument.id,
+        submittedBy: currentUser.id,
+        submittedFor: selectedScoutId,
+        signedDate: new Date().toISOString(),
+        signatureData,
+        status: 'submitted'
+      };
+      setSubmissions(prev => [...prev, newSubmission]);
+      setSignatureModalOpen(false);
+      setPreviewOpen(false);
     }
   };
 
-  // Get document icon
-  const getDocumentIcon = (type: string) => {
-    switch (type) {
-      case 'medical':
-        return <Heart className="h-5 w-5 text-red-500" />;
-      case 'permission':
-        return <FileText className="h-5 w-5 text-blue-500" />;
-      case 'waiver':
-        return <Shield className="h-5 w-5 text-purple-500" />;
-      case 'policy':
-        return <File className="h-5 w-5 text-slate-500" />;
-      default:
-        return <File className="h-5 w-5 text-slate-500" />;
-    }
-  };
-
-  // Handle file drop
+  // Handle file operations
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -133,34 +151,206 @@ export default function DocumentsPage() {
     }
   };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleUpload = () => {
-    // Simulate upload - in production this would upload to server
-    const newDocs: Document[] = uploadedFiles.map((file, index) => ({
-      id: `new-${Date.now()}-${index}`,
-      name: file.name,
+    // Simulate creating new master documents
+    const newDocs: MasterDocument[] = uploadedFiles.map((file, index) => ({
+      id: `md-new-${Date.now()}-${index}`,
+      name: file.name.replace(/\.[^/.]+$/, ''),
       type: 'permission' as const,
-      url: URL.createObjectURL(file),
+      description: 'Uploaded document',
       uploadDate: new Date().toISOString().split('T')[0],
-      uploadedBy: '1',
-      status: 'pending' as const
+      uploadedBy: currentUser?.id || '1',
+      requiredFor: 'optional' as const
     }));
-
-    setDocuments(prev => [...newDocs, ...prev]);
+    setMasterDocuments(prev => [...newDocs, ...prev]);
     setUploadedFiles([]);
     setUploadModalOpen(false);
   };
 
-  // Approve document (scoutmaster only)
-  const approveDocument = (docId: string) => {
-    setDocuments(prev => prev.map(doc =>
-      doc.id === docId ? { ...doc, status: 'approved' as const } : doc
-    ));
+  // Get document icon
+  const getDocumentIcon = (type: string) => {
+    switch (type) {
+      case 'medical':
+        return <Heart className="h-5 w-5 text-red-500" />;
+      case 'permission':
+        return <FileText className="h-5 w-5 text-blue-500" />;
+      case 'waiver':
+        return <Shield className="h-5 w-5 text-purple-500" />;
+      default:
+        return <File className="h-5 w-5 text-slate-500" />;
+    }
   };
 
+  // Parent View - My Documents to Sign
+  if (isParent) {
+    const relevantDocs = getRelevantDocuments();
+    const children = currentUser?.children?.map(id => getUserById(id)).filter(Boolean) || [];
+
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                  <Folder className="h-6 w-6 text-red-900" />
+                  Required Documents
+                </h1>
+                <p className="text-slate-500 mt-1">
+                  Sign and submit required documents for your scouts
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200">
+                <Users className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-700">{children.length} Scout(s) Linked</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {children.length === 0 ? (
+            <Card className="troop-card">
+              <CardContent className="p-8 text-center">
+                <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No Scouts Linked</h3>
+                <p className="text-slate-500">
+                  Contact your Scoutmaster to link your children to your account.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-8">
+              {children.map(child => {
+                if (!child) return null;
+                return (
+                  <div key={child.id}>
+                    <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+                        <Users className="h-4 w-4 text-slate-500" />
+                      </div>
+                      {child.name}'s Documents
+                    </h2>
+
+                    <div className="space-y-3">
+                      {relevantDocs.map(doc => {
+                        const submission = getSubmissionForScout(doc.id, child.id);
+                        const trip = doc.associatedTrip ? getTripById(doc.associatedTrip) : null;
+
+                        return (
+                          <motion.div
+                            key={`${doc.id}-${child.id}`}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <Card className="troop-card hover:shadow-md transition-shadow">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    {getDocumentIcon(doc.type)}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-medium text-slate-900">{doc.name}</h3>
+                                    <p className="text-sm text-slate-500 mt-0.5">{doc.description}</p>
+                                    {trip && (
+                                      <p className="text-xs text-blue-600 mt-1">For: {trip.name}</p>
+                                    )}
+                                    {doc.dueDate && (
+                                      <p className="text-xs text-amber-600 mt-1">
+                                        Due: {new Date(doc.dueDate).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-3 flex-shrink-0">
+                                    {submission ? (
+                                      <>
+                                        <span className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-full ${
+                                          submission.status === 'approved'
+                                            ? 'bg-green-50 text-green-700 border border-green-200'
+                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        }`}>
+                                          {submission.status === 'approved' ? (
+                                            <><CheckCircle className="h-4 w-4" /> Approved</>
+                                          ) : (
+                                            <><Clock className="h-4 w-4" /> Submitted</>
+                                          )}
+                                        </span>
+                                        <Button variant="outline" size="sm">
+                                          <Eye className="h-4 w-4 mr-1" />
+                                          View
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Button
+                                        onClick={() => {
+                                          setSelectedDocument(doc);
+                                          setSelectedScoutId(child.id);
+                                          setPreviewOpen(true);
+                                        }}
+                                        className="troop-button-primary"
+                                      >
+                                        <PenTool className="h-4 w-4 mr-2" />
+                                        Sign Document
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Document Preview & Sign Modal */}
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            {selectedDocument && selectedScoutId && currentUser && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-slate-900">
+                    {selectedDocument.name}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Review and sign for {getUserById(selectedScoutId)?.name}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <PermissionSlipTemplate
+                  document={selectedDocument}
+                  trip={selectedDocument.associatedTrip ? getTripById(selectedDocument.associatedTrip) : undefined}
+                  scout={getUserById(selectedScoutId)!}
+                  parent={currentUser}
+                  onSign={() => setSignatureModalOpen(true)}
+                />
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Signature Modal */}
+        {selectedDocument && selectedScoutId && (
+          <SignatureCanvasComponent
+            trip={selectedDocument.associatedTrip ? getTripById(selectedDocument.associatedTrip)! : { id: '', name: selectedDocument.name } as any}
+            isOpen={signatureModalOpen}
+            onClose={() => setSignatureModalOpen(false)}
+            onComplete={handleSignatureComplete}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Leader View - Master Documents & Submissions
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -170,165 +360,199 @@ export default function DocumentsPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                 <Folder className="h-6 w-6 text-red-900" />
-                Document Vault
+                Document Management
               </h1>
               <p className="text-slate-500 mt-1">
-                {documents.length} documents · {documents.filter(d => d.status === 'pending').length} pending review
+                {masterDocuments.length} master documents · Track submissions
               </p>
             </div>
 
-            <Button
-              onClick={() => setUploadModalOpen(true)}
-              className="troop-button-primary"
+            {isLeader && (
+              <Button onClick={() => setUploadModalOpen(true)} className="troop-button-primary">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-6 flex gap-4 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab('master')}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'master'
+                  ? 'border-red-900 text-red-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Document
-            </Button>
+              Master Documents
+            </button>
+            <button
+              onClick={() => setActiveTab('submissions')}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'submissions'
+                  ? 'border-red-900 text-red-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Submissions Tracker
+            </button>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar - Categories */}
-          <div className="lg:w-64 flex-shrink-0">
-            <Card className="troop-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-                  Categories
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
-                <nav className="space-y-1">
-                  {categories.map(category => {
-                    const Icon = category.icon;
-                    const isActive = selectedCategory === category.id;
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => setSelectedCategory(category.id as DocumentCategory)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                          isActive
-                            ? 'bg-red-50 text-red-900 font-medium'
-                            : 'text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Icon className={`h-4 w-4 ${isActive ? 'text-red-900' : 'text-slate-400'}`} />
-                          {category.label}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          isActive ? 'bg-red-900 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {category.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Master Documents Tab */}
+        {activeTab === 'master' && (
+          <div className="space-y-4">
+            {masterDocuments.map((doc, index) => {
+              const stats = getSubmissionStats(doc.id);
+              const trip = doc.associatedTrip ? getTripById(doc.associatedTrip) : null;
 
-          {/* Main Content */}
-          <div className="flex-1">
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
-                />
-              </div>
-            </div>
+              return (
+                <motion.div
+                  key={doc.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className="troop-card hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          {getDocumentIcon(doc.type)}
+                        </div>
 
-            {/* Document List */}
-            <Card className="troop-card">
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-200">
-                  {filteredDocuments.map((doc, index) => (
-                    <motion.div
-                      key={doc.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
-                    >
-                      {/* Icon */}
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        {getDocumentIcon(doc.type)}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-slate-900 truncate">{doc.name}</h3>
-                        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {new Date(doc.uploadDate).toLocaleDateString()}
-                          </span>
-                          {doc.expirationDate && (
-                            <span className="text-amber-600">
-                              Expires: {new Date(doc.expirationDate).toLocaleDateString()}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-slate-900">{doc.name}</h3>
+                          <p className="text-sm text-slate-500 mt-0.5">{doc.description}</p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              Uploaded: {new Date(doc.uploadDate).toLocaleDateString()}
                             </span>
-                          )}
+                            {trip && (
+                              <span className="text-blue-600">Trip: {trip.name}</span>
+                            )}
+                            {doc.dueDate && (
+                              <span className="text-amber-600">Due: {new Date(doc.dueDate).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Submission Progress */}
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <div className="text-right">
+                            <p className={`text-lg font-semibold ${
+                              stats.signed === stats.total ? 'text-green-600' : 'text-amber-600'
+                            }`}>
+                              {stats.signed}/{stats.total}
+                            </p>
+                            <p className="text-xs text-slate-500">Submitted</p>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-1" />
+                              Preview
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Status */}
-                      <div className="flex-shrink-0">
-                        {getStatusBadge(doc.status)}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button variant="outline" size="sm" className="hidden sm:flex">
-                          <Eye className="h-4 w-4 mr-1" />
-                          Preview
-                        </Button>
-                        <Button variant="outline" size="sm" className="hidden sm:flex">
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </Button>
-
-                        {/* Approve button for scoutmasters */}
-                        {canApproveDocuments(currentRole) && doc.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => approveDocument(doc.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-
-                  {/* Empty State */}
-                  {filteredDocuments.length === 0 && (
-                    <div className="p-12 text-center">
-                      <Folder className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-slate-900 mb-2">No documents found</h3>
-                      <p className="text-slate-500 mb-4">
-                        {searchQuery ? 'Try adjusting your search.' : 'Upload your first document to get started.'}
-                      </p>
-                      <Button onClick={() => setUploadModalOpen(true)} className="troop-button-primary">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Document
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </div>
-        </div>
+        )}
+
+        {/* Submissions Tracker Tab */}
+        {activeTab === 'submissions' && (
+          <div className="space-y-6">
+            {masterDocuments.map(doc => {
+              const stats = getSubmissionStats(doc.id);
+              const trip = doc.associatedTrip ? getTripById(doc.associatedTrip) : null;
+
+              let relevantScouts = allScouts;
+              if (doc.requiredFor === 'trip' && doc.associatedTrip) {
+                relevantScouts = allScouts.filter(s => trip?.attendees.includes(s.id));
+              }
+
+              return (
+                <Card key={doc.id} className="troop-card">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getDocumentIcon(doc.type)}
+                        <div>
+                          <CardTitle className="text-lg">{doc.name}</CardTitle>
+                          {trip && <p className="text-sm text-slate-500">{trip.name}</p>}
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                        stats.signed === stats.total
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}>
+                        {stats.signed}/{stats.total} Complete
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {relevantScouts.map(scout => {
+                        const submission = getSubmissionForScout(doc.id, scout.id);
+
+                        return (
+                          <div
+                            key={scout.id}
+                            className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                              submission
+                                ? submission.status === 'approved'
+                                  ? 'bg-green-50 border border-green-200'
+                                  : 'bg-amber-50 border border-amber-200'
+                                : 'bg-red-50 border border-red-200'
+                            }`}
+                          >
+                            <div className={`w-2 h-2 rounded-full ${
+                              submission
+                                ? submission.status === 'approved'
+                                  ? 'bg-green-500'
+                                  : 'bg-amber-500'
+                                : 'bg-red-500'
+                            }`} />
+                            <span className={`truncate ${
+                              submission ? 'text-slate-700' : 'text-red-700'
+                            }`}>
+                              {scout.name}
+                            </span>
+                            {submission && submission.status !== 'approved' && canApproveDocuments(currentRole) && (
+                              <button
+                                onClick={() => {
+                                  setSubmissions(prev => prev.map(s =>
+                                    s.id === submission.id ? { ...s, status: 'approved' as const } : s
+                                  ));
+                                }}
+                                className="ml-auto p-1 hover:bg-green-100 rounded"
+                                title="Approve"
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Upload Modal */}
@@ -337,22 +561,19 @@ export default function DocumentsPage() {
           <DialogHeader>
             <DialogTitle className="text-slate-900 flex items-center gap-2">
               <Upload className="h-5 w-5 text-red-900" />
-              Upload Document
+              Upload Master Document
             </DialogTitle>
             <DialogDescription>
-              Upload medical forms, permission slips, and other scout documents.
+              Upload a new document template that scouts/parents need to sign.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Drag & Drop Zone */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragging
-                ? 'border-red-900 bg-red-50'
-                : 'border-slate-300 hover:border-slate-400'
+              isDragging ? 'border-red-900 bg-red-50' : 'border-slate-300 hover:border-slate-400'
             }`}
           >
             <input
@@ -361,7 +582,7 @@ export default function DocumentsPage() {
               multiple
               onChange={handleFileSelect}
               className="hidden"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              accept=".pdf,.doc,.docx"
             />
             <Folder className={`h-12 w-12 mx-auto mb-4 ${isDragging ? 'text-red-900' : 'text-slate-400'}`} />
             <p className="text-slate-600 mb-2">
@@ -373,29 +594,20 @@ export default function DocumentsPage() {
                 browse
               </button>
             </p>
-            <p className="text-xs text-slate-400">
-              Supports PDF, DOC, DOCX, JPG, PNG (max 10MB)
-            </p>
+            <p className="text-xs text-slate-400">Supports PDF, DOC, DOCX</p>
           </div>
 
-          {/* Uploaded Files List */}
           {uploadedFiles.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-sm font-medium text-slate-700">Files to upload:</p>
               {uploadedFiles.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-2 bg-slate-50 rounded-lg"
-                >
+                <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <File className="h-4 w-4 text-slate-400" />
                     <span className="text-sm text-slate-700 truncate">{file.name}</span>
-                    <span className="text-xs text-slate-400">
-                      ({(file.size / 1024).toFixed(1)} KB)
-                    </span>
                   </div>
                   <button
-                    onClick={() => removeFile(index)}
+                    onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== index))}
                     className="p-1 hover:bg-slate-200 rounded"
                   >
                     <X className="h-4 w-4 text-slate-500" />
@@ -405,7 +617,6 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 mt-4">
             <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
               Cancel
@@ -416,7 +627,7 @@ export default function DocumentsPage() {
               className="troop-button-primary"
             >
               <Upload className="h-4 w-4 mr-2" />
-              Upload {uploadedFiles.length > 0 && `(${uploadedFiles.length})`}
+              Upload
             </Button>
           </div>
         </DialogContent>

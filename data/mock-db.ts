@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'scoutmaster' | 'spl' | 'aspl' | 'patrol_leader' | 'parent' | 'scout';
+export type UserRole = 'admin' | 'scoutmaster' | 'spl' | 'aspl' | 'patrol_leader' | 'parent' | 'scout' | 'guest';
 
 export interface User {
   id: string;
@@ -12,6 +12,7 @@ export interface User {
   medicalStatus?: 'complete' | 'pending' | 'missing';
   joinDate?: string;
   eagleDate?: string;
+  children?: string[]; // For parents: IDs of their scout children
 }
 
 export interface PermissionSlip {
@@ -90,6 +91,28 @@ export interface BlastMessage {
   readBy: string[];
 }
 
+export interface MasterDocument {
+  id: string;
+  name: string;
+  type: 'medical' | 'permission' | 'waiver' | 'policy';
+  description: string;
+  uploadDate: string;
+  uploadedBy: string;
+  requiredFor: 'all_scouts' | 'trip' | 'optional';
+  associatedTrip?: string;
+  dueDate?: string;
+}
+
+export interface UserSubmission {
+  id: string;
+  masterDocumentId: string;
+  submittedBy: string;
+  submittedFor: string;
+  signedDate: string;
+  signatureData?: string;
+  status: 'submitted' | 'approved' | 'rejected';
+}
+
 // Mock Users - THE KEY CHARACTERS
 export const mockUsers: User[] = [
   {
@@ -146,7 +169,8 @@ export const mockUsers: User[] = [
     role: 'parent',
     phone: '610-555-0127',
     address: '654 Family Circle, Malvern, PA 19355',
-    medicalStatus: 'complete'
+    medicalStatus: 'complete',
+    children: ['6', '8'] // Michael Chen and Tyler Brooks
   },
   {
     id: '6',
@@ -183,6 +207,14 @@ export const mockUsers: User[] = [
     address: '258 Outdoor Way, Malvern, PA 19355',
     medicalStatus: 'pending',
     joinDate: '2023-02-01'
+  },
+  {
+    id: '9',
+    name: 'Guest Visitor',
+    email: 'visitor@example.com',
+    role: 'guest',
+    phone: '',
+    address: ''
   }
 ];
 
@@ -439,6 +471,97 @@ export const mockBlastMessages: BlastMessage[] = [
     isEmergency: true,
     sentDate: '2024-12-30T08:15:00Z',
     readBy: ['2', '3', '4', '6', '7', '8']
+  }
+];
+
+// Mock Master Documents - TEMPLATES THAT NEED SIGNING
+export const mockMasterDocuments: MasterDocument[] = [
+  {
+    id: 'md-1',
+    name: 'Switzerland 2026 Permission Slip & Medical Release',
+    type: 'permission',
+    description: 'Required permission slip and medical release for the Switzerland Adventure 2026 international trip.',
+    uploadDate: '2024-11-01',
+    uploadedBy: '1',
+    requiredFor: 'trip',
+    associatedTrip: '1',
+    dueDate: '2025-03-01'
+  },
+  {
+    id: 'md-2',
+    name: 'Annual Medical Form Part A',
+    type: 'medical',
+    description: 'BSA Annual Health and Medical Record Part A - required for all scouts annually.',
+    uploadDate: '2024-01-01',
+    uploadedBy: '1',
+    requiredFor: 'all_scouts',
+    dueDate: '2025-01-01'
+  },
+  {
+    id: 'md-3',
+    name: 'Annual Medical Form Part B',
+    type: 'medical',
+    description: 'BSA Annual Health and Medical Record Part B - required for overnight activities.',
+    uploadDate: '2024-01-01',
+    uploadedBy: '1',
+    requiredFor: 'all_scouts',
+    dueDate: '2025-01-01'
+  },
+  {
+    id: 'md-4',
+    name: 'Disney World 2026 Permission Slip',
+    type: 'permission',
+    description: 'Permission slip for Disney World Spring Break trip.',
+    uploadDate: '2024-12-01',
+    uploadedBy: '1',
+    requiredFor: 'trip',
+    associatedTrip: '2',
+    dueDate: '2026-02-15'
+  },
+  {
+    id: 'md-5',
+    name: 'High Adventure Liability Waiver',
+    type: 'waiver',
+    description: 'Liability waiver for high adventure activities including rock climbing and whitewater rafting.',
+    uploadDate: '2024-06-01',
+    uploadedBy: '1',
+    requiredFor: 'optional'
+  }
+];
+
+// Mock User Submissions - WHO HAS SIGNED WHAT
+export const mockUserSubmissions: UserSubmission[] = [
+  {
+    id: 'sub-1',
+    masterDocumentId: 'md-1',
+    submittedBy: '5',
+    submittedFor: '6',
+    signedDate: '2024-12-15',
+    status: 'approved'
+  },
+  {
+    id: 'sub-2',
+    masterDocumentId: 'md-2',
+    submittedBy: '5',
+    submittedFor: '6',
+    signedDate: '2024-11-20',
+    status: 'approved'
+  },
+  {
+    id: 'sub-3',
+    masterDocumentId: 'md-3',
+    submittedBy: '5',
+    submittedFor: '6',
+    signedDate: '2024-11-20',
+    status: 'approved'
+  },
+  {
+    id: 'sub-4',
+    masterDocumentId: 'md-2',
+    submittedBy: '5',
+    submittedFor: '8',
+    signedDate: '2024-12-01',
+    status: 'submitted'
   }
 ];
 

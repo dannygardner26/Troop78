@@ -39,6 +39,7 @@ export function SignatureCanvasComponent({ trip, isOpen, onClose, onComplete }: 
       signatureRef.current.clear();
     }
     setSignatureData('');
+    setHasDrawn(false);
   };
 
   const saveSignature = () => {
@@ -64,8 +65,14 @@ export function SignatureCanvasComponent({ trip, isOpen, onClose, onComplete }: 
     setSignatureData('');
   };
 
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  const handleSignatureEnd = () => {
+    setHasDrawn(true);
+  };
+
   const isSignatureEmpty = () => {
-    return signatureRef.current ? signatureRef.current.isEmpty() : true;
+    return !hasDrawn;
   };
 
   // Reset state when dialog closes
@@ -74,6 +81,7 @@ export function SignatureCanvasComponent({ trip, isOpen, onClose, onComplete }: 
       setCurrentStep('info');
       setShowPreview(false);
       setSignatureData('');
+      setHasDrawn(false);
     }
   }, [isOpen]);
 
@@ -206,6 +214,7 @@ export function SignatureCanvasComponent({ trip, isOpen, onClose, onComplete }: 
                   <SignatureCanvas
                     ref={signatureRef}
                     penColor="black"
+                    onEnd={handleSignatureEnd}
                     canvasProps={{
                       width: 500,
                       height: 150,

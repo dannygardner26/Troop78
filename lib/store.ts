@@ -81,7 +81,8 @@ export const getRoleLabel = (role: UserRole): string => {
     aspl: 'Assistant SPL',
     patrol_leader: 'Patrol Leader',
     parent: 'Parent',
-    scout: 'Scout'
+    scout: 'Scout',
+    guest: 'Prospective / Guest'
   };
   return labels[role] || role;
 };
@@ -94,7 +95,8 @@ export const getRoleBadgeColor = (role: UserRole): string => {
     aspl: 'bg-amber-400 text-black',
     patrol_leader: 'bg-blue-600 text-white',
     parent: 'bg-green-600 text-white',
-    scout: 'bg-slate-600 text-white'
+    scout: 'bg-slate-600 text-white',
+    guest: 'bg-gray-400 text-black'
   };
   return colors[role] || 'bg-slate-500 text-white';
 };
